@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Copilot Studio Agent Cost Calculator v1.3.3.1</title>
+    <title>Copilot Studio Agent Cost Calculator v1.3.4.1</title>
     <!-- 
         APPLICATION: Copilot Studio Agent Cost Calculator
-        VERSION: 1.3.3.1
-        DOCUMENTATION:
-            - Validated against "COB" Excel Source Files.
-            - Standard Logic: (Graph*10 + Answers*2) * Convos
-            - Autonomous Logic: (Triggers*7 + Deep*10 + Answers*2 + Flow*0.13) * Convos
-            - Rollup: Daily * 22 Business Days = Monthly; Monthly * 12 = Annual.
-            - Security: Added listeners to block context menu and save/view source shortcuts.
+        VERSION: 1.3.4.1
+        UPDATES:
+            - Fixed TypeError: "Cannot set properties of null" by restoring missing DOM elements.
+            - Added null-checks to calculate() to prevent script crashes if UI elements are missing.
+            - Restored "Daily Total Credits" to the results dashboard.
+            - Maintained PDF report and Outlook integration features.
     -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         .card { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); }
@@ -44,7 +44,7 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             </div>
             <h1 class="text-3xl font-bold tracking-tight text-slate-900 uppercase">Budgetary Cost Estimator</h1>
-            <p class="text-slate-500 mt-1 italic text-sm">v1.3.3.1 • Validated Funding Projections</p>
+            <p class="text-slate-500 mt-1 italic text-sm">v1.3.4.1 • Enterprise Reporting Suite</p>
             <div class="flex justify-center mt-6">
                 <div class="bg-white/60 p-1 rounded-2xl border border-white flex shadow-sm">
                     <button id="mode-std" onclick="setMode('standard')" class="px-6 py-2 rounded-xl text-sm font-semibold mode-toggle mode-active">Standard Agents</button>
@@ -53,7 +53,7 @@
             </div>
         </header>
 
-        <!-- Navigation -->
+        <!-- Navigation Tabs -->
         <div class="flex justify-center space-x-8 mb-8 border-b border-slate-200">
             <button onclick="switchTab('calculator')" id="tab-calc" class="pb-3 px-2 tab-active transition-all">Calculator</button>
             <button onclick="switchTab('pricing')" id="tab-pricing" class="pb-3 px-2 text-slate-500 hover:text-slate-700 transition-all">Rates & Logic</button>
@@ -161,23 +161,30 @@
                                 <div class="text-5xl font-bold mb-2" id="total_annual">$0.00</div>
                                 <p class="text-slate-400 text-xs mb-8" id="calc_methodology">Estimated for funding purposes (<span class="val-days">22</span> days/mo)</p>
                                 <div class="space-y-4 pt-6 border-t border-slate-700">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-400 text-sm">Typical Agent Monthly</span>
+                                    <div class="flex justify-between items-center text-sm">
+                                        <span class="text-slate-400">Typical Agent Monthly</span>
                                         <span class="font-bold text-lg" id="agent_cost_monthly">$0.00</span>
                                     </div>
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-slate-400 text-sm">Daily Total Credits</span>
+                                    <div class="flex justify-between items-center text-sm">
+                                        <span class="text-slate-400">Daily Total Credits</span>
                                         <span class="font-semibold text-sky-400" id="total_msgs_daily">0</span>
                                     </div>
                                 </div>
-                                <button onclick="generateEmail()" class="w-full mt-8 bg-sky-600 hover:bg-sky-500 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg group">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    Generate Funding Draft
-                                </button>
+                                
+                                <div class="grid grid-cols-1 gap-3 mt-8">
+                                    <button onclick="downloadPDF()" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl hover:bg-sky-50 transition-colors flex items-center justify-center gap-2 shadow-lg">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        Download PDF Report
+                                    </button>
+                                    <button onclick="generateEmail()" class="w-full bg-sky-600 text-white font-bold py-3 rounded-xl hover:bg-sky-500 transition-all flex items-center justify-center gap-2 shadow-lg group">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                        Generate Funding Draft
+                                    </button>
+                                </div>
                             </div>
                             <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-sky-500/10 blur-3xl rounded-full"></div>
                         </div>
-                        <div class="bg-white/70 border border-white p-6 rounded-3xl shadow-sm">
+                        <div class="bg-white/70 border border-white p-6 rounded-3xl shadow-sm" id="main-breakdown">
                             <h3 class="text-sm font-bold text-slate-900 mb-4 flex items-center uppercase tracking-widest border-b border-slate-100 pb-2">Calculation Breakdown</h3>
                             <div id="breakdown-container" class="space-y-3 text-xs"></div>
                             <div class="mt-6 pt-4 border-t border-slate-100 text-slate-500 text-[11px] leading-relaxed italic" id="summary_text"></div>
@@ -187,6 +194,7 @@
             </div>
         </div>
 
+        <!-- Pricing Tab -->
         <div id="content-pricing" class="hidden space-y-8 pb-12">
             <div class="card p-8 rounded-3xl shadow-xl border border-white">
                 <h2 class="text-xl font-bold mb-6 text-slate-900">Logic Baseline (Jan 2026 Credits)</h2>
@@ -200,8 +208,48 @@
                         <tbody id="rate-table-body"></tbody>
                     </table>
                 </div>
-                <div class="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-700 leading-relaxed">
-                    <strong>Funding Disclaimer:</strong> These projections are estimated values for planning and budgetary funding purposes only. Actual consumption, runtime orchestration logic, and environment-specific patterns will result in expected differences in final billing.
+            </div>
+        </div>
+
+        <!-- Hidden PDF Container (Off-screen) -->
+        <div style="position: absolute; left: -9999px; top: 0;">
+            <div id="pdf-content" class="p-10 bg-white" style="width: 800px;">
+                <div class="flex justify-between items-start border-b-2 border-sky-600 pb-6 mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-slate-900">Copilot Studio Cost Estimate</h1>
+                        <p class="text-sky-600 font-semibold uppercase tracking-wider">Budgetary Funding Report</p>
+                    </div>
+                    <div class="text-right text-xs text-slate-500">
+                        <p>Date: <span id="pdf-date"></span></p>
+                        <p>Version: 1.3.4.1</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-10 mb-10">
+                    <div class="bg-slate-50 p-6 rounded-xl">
+                        <h2 class="text-xs font-bold text-slate-400 uppercase mb-4">Deployment Configuration</h2>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between"><span>Agent Mode:</span><span id="pdf-mode" class="font-bold"></span></div>
+                            <div class="flex justify-between"><span>Total Agents:</span><span id="pdf-agents" class="font-bold"></span></div>
+                            <div class="flex justify-between"><span>Daily Convos/Agent:</span><span id="pdf-convos" class="font-bold"></span></div>
+                        </div>
+                    </div>
+                    <div class="bg-sky-900 text-white p-6 rounded-xl">
+                        <h2 class="text-xs font-bold text-sky-300 uppercase mb-4">Financial Summary</h2>
+                        <div class="space-y-2">
+                            <div class="flex justify-between"><span>Estimated Annual:</span><span id="pdf-annual" class="text-xl font-bold"></span></div>
+                            <div class="flex justify-between text-sm opacity-80"><span>Estimated Monthly:</span><span id="pdf-monthly"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase mb-4">Calculated Daily Intensity</h2>
+                    <div id="pdf-breakdown" class="border rounded-xl p-6 space-y-3 text-sm"></div>
+                </div>
+
+                <div class="mt-20 pt-8 border-t text-[10px] text-slate-400 leading-relaxed">
+                    <p><strong>Funding Disclaimer:</strong> This document provides estimated values for planning and budgetary funding purposes only. Actual consumption, runtime orchestration logic, and environment-specific patterns will result in differences in final billing. Projections assume a 22-business day cycle per month at current standard Microsoft Copilot Credit rates.</p>
                 </div>
             </div>
         </div>
@@ -214,13 +262,13 @@
     <!-- Settings Modal -->
     <div id="settings-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
         <div class="absolute inset-0 modal-overlay" onclick="toggleSettings(false)"></div>
-        <div class="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in duration-200">
-            <div class="p-6 border-b flex justify-between items-center"><h2 class="text-xl font-bold">Calculation Logic Config</h2></div>
+        <div class="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden">
+            <div class="p-6 border-b flex justify-between items-center"><h2 class="text-xl font-bold">Logic Configuration</h2></div>
             <div class="p-6 space-y-8 max-h-[65vh] overflow-y-auto" id="settings-form">
                 <div class="space-y-6">
                     <section><h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Core Billing</h3><div class="grid grid-cols-2 gap-4" id="section-billing"></div></section>
-                    <section><h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Standard Agent Factors</h3><div class="grid grid-cols-2 gap-4" id="section-standard"></div></section>
-                    <section><h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Autonomous Agent Factors</h3><div class="grid grid-cols-2 gap-4" id="section-autonomous"></div></section>
+                    <section><h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Standard Factors</h3><div class="grid grid-cols-2 gap-4" id="section-standard"></div></section>
+                    <section><h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Autonomous Factors</h3><div class="grid grid-cols-2 gap-4" id="section-autonomous"></div></section>
                 </div>
             </div>
             <div class="p-6 border-t bg-slate-50 flex gap-3">
@@ -234,7 +282,7 @@
     </div>
 
     <script>
-        // Security logic to prevent unauthorized downloads/source viewing
+        // Security logic
         document.addEventListener('contextmenu', e => e.preventDefault());
         document.addEventListener('keydown', e => {
             if (e.ctrlKey && ['s','u'].includes(e.key.toLowerCase())) {
@@ -261,28 +309,36 @@
 
         function setMode(m) {
             currentMode = m;
-            document.getElementById('mode-std').classList.toggle('mode-active', m === 'standard');
-            document.getElementById('mode-auto').classList.toggle('mode-active', m === 'autonomous');
-            document.getElementById('standard-inputs').classList.toggle('hidden', m === 'autonomous');
-            document.getElementById('autonomous-inputs').classList.toggle('hidden', m === 'standard');
-            document.getElementById('complexity-title').innerText = `Session Profile (${m === 'standard' ? 'Standard' : 'Autonomous'})`;
+            const stdBtn = document.getElementById('mode-std');
+            const autoBtn = document.getElementById('mode-auto');
+            const stdInputs = document.getElementById('standard-inputs');
+            const autoInputs = document.getElementById('autonomous-inputs');
+            const compTitle = document.getElementById('complexity-title');
+
+            if (stdBtn) stdBtn.classList.toggle('mode-active', m === 'standard');
+            if (autoBtn) autoBtn.classList.toggle('mode-active', m === 'autonomous');
+            if (stdInputs) stdInputs.classList.toggle('hidden', m === 'autonomous');
+            if (autoInputs) autoInputs.classList.toggle('hidden', m === 'standard');
+            if (compTitle) compTitle.innerText = `Session Profile (${m === 'standard' ? 'Standard' : 'Autonomous'})`;
             calculate();
         }
 
         function syncInputs(id, val) {
-            document.getElementById(id).value = val;
+            const el = document.getElementById(id);
+            if (el) el.value = val;
             calculate();
         }
 
         function populateRateTable() {
             const table = document.getElementById('rate-table-body');
+            if (!table) return;
             const data = [
                 { type: 'Tenant Graph Grounding', rate: RATES.graph, note: 'Knowledge Retrieval' },
-                { type: 'Generative Answers', rate: RATES.genai, note: 'Text/GenAI standard output' },
-                { type: 'Autonomous Triggers', rate: RATES.triggers, note: 'Logic initiation credits' },
-                { type: 'Deep Reasoning (o1)', rate: RATES.deep, note: 'Complex Orchestration steps' },
-                { type: 'Agent Flow Actions', rate: RATES.flow, note: 'Power Automate integration' },
-                { type: 'Credit Unit Price', rate: `$${RATES.price_per_msg}`, note: 'Per credit consumption unit' }
+                { type: 'Generative Answers', rate: RATES.genai, note: 'Standard text output' },
+                { type: 'Autonomous Triggers', rate: RATES.triggers, note: 'Logic initiation' },
+                { type: 'Deep Reasoning (o1)', rate: RATES.deep, note: 'Complex orchestration' },
+                { type: 'Agent Flow Actions', rate: RATES.flow, note: 'Power Automate' },
+                { type: 'Credit Unit Price', rate: `$${RATES.price_per_msg}`, note: 'Per credit unit' }
             ];
             table.innerHTML = data.map(r => `
                 <tr class="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
@@ -294,15 +350,19 @@
         }
 
         function calculate() {
-            const agents = parseFloat(document.getElementById('num_agents').value) || 0;
-            const convos = parseFloat(document.getElementById('num_convos').value) || 0;
+            const agentsEl = document.getElementById('num_agents');
+            const convosEl = document.getElementById('num_convos');
+            const agents = agentsEl ? parseFloat(agentsEl.value) : 0;
+            const convos = convosEl ? parseFloat(convosEl.value) : 0;
             
             let dailyTotalPerAgent = 0;
             let breakdownHtml = '';
 
             if (currentMode === 'standard') {
-                const g = parseFloat(document.getElementById('num_graph').value) || 0;
-                const a = parseFloat(document.getElementById('num_genai').value) || 0;
+                const gInput = document.getElementById('num_graph');
+                const aInput = document.getElementById('num_genai');
+                const g = gInput ? parseFloat(gInput.value) : 0;
+                const a = aInput ? parseFloat(aInput.value) : 0;
                 const gBurn = g * RATES.graph * convos;
                 const aBurn = a * RATES.genai * convos;
                 dailyTotalPerAgent = gBurn + aBurn;
@@ -311,10 +371,15 @@
                     <div class="flex justify-between"><span>Gen Answers Daily</span><span class="font-bold">${Math.round(aBurn).toLocaleString()}</span></div>
                 `;
             } else {
-                const t = parseFloat(document.getElementById('num_triggers').value) || 0;
-                const d = parseFloat(document.getElementById('num_deep').value) || 0;
-                const g = parseFloat(document.getElementById('num_auto_genai').value) || 0;
-                const f = parseFloat(document.getElementById('num_flow').value) || 0;
+                const tInput = document.getElementById('num_triggers');
+                const dInput = document.getElementById('num_deep');
+                const gInput = document.getElementById('num_auto_genai');
+                const fInput = document.getElementById('num_flow');
+                const t = tInput ? parseFloat(tInput.value) : 0;
+                const d = dInput ? parseFloat(dInput.value) : 0;
+                const g = gInput ? parseFloat(gInput.value) : 0;
+                const f = fInput ? parseFloat(fInput.value) : 0;
+
                 const tBurn = t * RATES.triggers * convos;
                 const dBurn = d * RATES.deep * convos;
                 const gBurn = g * RATES.genai * convos;
@@ -329,30 +394,71 @@
             }
 
             breakdownHtml += `<div class="flex justify-between border-t border-slate-100 pt-2 font-bold text-sky-600 uppercase tracking-tighter"><span>Total Credits Daily / Agent</span><span>${Math.round(dailyTotalPerAgent).toLocaleString()}</span></div>`;
-            document.getElementById('breakdown-container').innerHTML = breakdownHtml;
+            
+            const breakdownContainer = document.getElementById('breakdown-container');
+            if (breakdownContainer) breakdownContainer.innerHTML = breakdownHtml;
 
             const fleetDaily = dailyTotalPerAgent * agents;
             const monthlyCost = fleetDaily * RATES.days_per_month * RATES.price_per_msg;
             const annualCost = monthlyCost * 12;
 
-            document.getElementById('total_annual').innerText = formatCurrency(annualCost);
-            document.getElementById('agent_cost_monthly').innerText = agents > 0 ? formatCurrency(monthlyCost / agents) : "$0.00";
-            document.getElementById('total_msgs_daily').innerText = Math.round(fleetDaily).toLocaleString();
-            document.querySelectorAll('.val-days').forEach(el => el.innerText = RATES.days_per_month);
+            const totalAnnualEl = document.getElementById('total_annual');
+            const agentMonthlyEl = document.getElementById('agent_cost_monthly');
+            const totalDailyMsgsEl = document.getElementById('total_msgs_daily');
+            const summaryTextEl = document.getElementById('summary_text');
+
+            if (totalAnnualEl) totalAnnualEl.innerText = formatCurrency(annualCost);
+            if (agentMonthlyEl) agentMonthlyEl.innerText = agents > 0 ? formatCurrency(monthlyCost / agents) : "$0.00";
+            if (totalDailyMsgsEl) totalDailyMsgsEl.innerText = Math.round(fleetDaily).toLocaleString();
+            if (summaryTextEl) summaryTextEl.innerText = `Deployment of ${agents} ${currentMode} agents processing ${Math.round(fleetDaily).toLocaleString()} credits daily. Total monthly requirement is estimated at ${Math.round(fleetDaily * RATES.days_per_month).toLocaleString()} credits for the tenant pool.`;
             
-            document.getElementById('summary_text').innerText = `Estimated deployment of ${agents} ${currentMode} agents processing ${Math.round(fleetDaily).toLocaleString()} daily credits. Final monthly requirements may differ based on actual logic orchestration patterns.`;
-            window.lastCalc = { agents, annualCost, monthlyCost, fleetDaily, mode: currentMode, burnPerConvo: dailyTotalPerAgent / convos || 0 };
+            window.lastCalc = { 
+                agents, annualCost, monthlyCost, fleetDaily, 
+                mode: currentMode, burnPerConvo: dailyTotalPerAgent / convos || 0,
+                breakdownHtml, convos
+            };
+        }
+
+        function downloadPDF() {
+            const c = window.lastCalc;
+            const pdfDateEl = document.getElementById('pdf-date');
+            const pdfModeEl = document.getElementById('pdf-mode');
+            const pdfAgentsEl = document.getElementById('pdf-agents');
+            const pdfConvosEl = document.getElementById('pdf-convos');
+            const pdfAnnualEl = document.getElementById('pdf-annual');
+            const pdfMonthlyEl = document.getElementById('pdf-monthly');
+            const pdfBreakdownEl = document.getElementById('pdf-breakdown');
+
+            if (pdfDateEl) pdfDateEl.innerText = new Date().toLocaleDateString();
+            if (pdfModeEl) pdfModeEl.innerText = c.mode.toUpperCase();
+            if (pdfAgentsEl) pdfAgentsEl.innerText = c.agents;
+            if (pdfConvosEl) pdfConvosEl.innerText = c.convos;
+            if (pdfAnnualEl) pdfAnnualEl.innerText = formatCurrency(c.annualCost);
+            if (pdfMonthlyEl) pdfMonthlyEl.innerText = formatCurrency(c.monthlyCost);
+            if (pdfBreakdownEl) pdfBreakdownEl.innerText = ""; // Clear if previously text
+            if (pdfBreakdownEl) pdfBreakdownEl.innerHTML = c.breakdownHtml;
+
+            const element = document.getElementById('pdf-content');
+            if (!element) return;
+            const opt = {
+                margin: 0,
+                filename: `Copilot_Estimate_${c.agents}_Agents.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
         }
 
         function generateEmail() {
             const c = window.lastCalc;
-            const subject = encodeURIComponent(`Budgetary Funding Estimate: Copilot Studio (${c.agents} Agents)`);
-            const disclaimer = `Please note: This is an estimated value for funding and planning purposes only. There may be expected differences between these projections and actual billing based on the final agent orchestration logic and runtime usage environment. Official billing assumes a ${RATES.days_per_month}-day business month.`;
+            const subject = encodeURIComponent(`Funding Estimate: Copilot Studio Deployment (${c.agents} Agents)`);
+            const disclaimer = `Please note: This is an estimated value for funding and planning purposes only. Please attach the formal PDF Report for the full configuration breakdown. Baseline assumes a ${RATES.days_per_month}-day business month.`;
             const spacer = "\n".repeat(40);
-            const techAudit = `[INTERNAL AUDIT: v1.3.3.1 | CONFIG: ${c.mode.toUpperCase()} | INTENSITY: ${c.burnPerConvo.toFixed(2)} | PRICE: ${RATES.price_per_msg} | CYCLE: ${RATES.days_per_month}]`;
+            const techAudit = `[INTERNAL AUDIT: v1.3.4.1 | CONFIG: ${c.mode.toUpperCase()} | INTENSITY: ${c.burnPerConvo.toFixed(2)} | PRICE: ${RATES.price_per_msg} | CYCLE: ${RATES.days_per_month}]`;
 
             const body = encodeURIComponent(
-                `Hi,\n\nI have prepared the budgetary funding estimates for our proposed Copilot Studio deployment. Below is the financial summary for the ${c.mode} agent pool:\n\n` +
+                `Hi,\n\nI have prepared the budgetary funding estimates for our proposed Copilot Studio deployment. Please find the high-level summary below and attach the formal PDF report to this message:\n\n` +
                 `Financial Projections:\n` +
                 `-----------------------------------\n` +
                 `• Number of Proposed Agents: ${c.agents}\n` +
@@ -360,7 +466,6 @@
                 `• Estimated Monthly Operational Cost: ${formatCurrency(c.monthlyCost)}\n` +
                 `• Projected Daily Credit Throughput: ${Math.round(c.fleetDaily).toLocaleString()}\n\n` +
                 `${disclaimer}\n\n` +
-                `Please let me know if you would like to proceed with the technical session profiling.\n\n` +
                 `Best regards,` +
                 `${spacer}\n` +
                 `${techAudit}`
@@ -372,18 +477,25 @@
 
         function toggleSettings(s) {
             const m = document.getElementById('settings-modal');
-            if (s) {
+            const form = document.getElementById('settings-form');
+            if (s && form) {
                 const createInput = (k) => `
                     <div class="flex flex-col p-2 bg-slate-50 border border-slate-100 rounded-lg">
                         <label class="text-[9px] font-bold uppercase text-slate-400 mb-1">${LABELS[k]}</label>
                         <input id="s_${k}" type="number" step="0.001" value="${RATES[k]}" class="w-full bg-transparent font-bold text-sky-700 outline-none text-sm">
                     </div>
                 `;
-                document.getElementById('section-billing').innerHTML = ['days_per_month', 'price_per_msg'].map(createInput).join('');
-                document.getElementById('section-standard').innerHTML = ['graph', 'genai', 'actions'].map(createInput).join('');
-                document.getElementById('section-autonomous').innerHTML = ['triggers', 'deep', 'flow'].map(createInput).join('');
+                const billingSect = document.getElementById('section-billing');
+                const standardSect = document.getElementById('section-standard');
+                const autoSect = document.getElementById('section-autonomous');
+
+                if (billingSect) billingSect.innerHTML = ['days_per_month', 'price_per_msg'].map(createInput).join('');
+                if (standardSect) standardSect.innerHTML = ['graph', 'genai', 'actions'].map(createInput).join('');
+                if (autoSect) autoSect.innerHTML = ['triggers', 'deep', 'flow'].map(createInput).join('');
                 m.classList.remove('hidden');
-            } else m.classList.add('hidden');
+            } else if (m) {
+                m.classList.add('hidden');
+            }
         }
 
         function saveSettings() {
@@ -406,10 +518,15 @@
         }
 
         function switchTab(t) {
-            document.getElementById('tab-calc').classList.toggle('tab-active', t==='calculator');
-            document.getElementById('tab-pricing').classList.toggle('tab-active', t==='pricing');
-            document.getElementById('content-calculator').classList.toggle('hidden', t==='pricing');
-            document.getElementById('content-pricing').classList.toggle('hidden', t==='calculator');
+            const calcTab = document.getElementById('tab-calc');
+            const pricingTab = document.getElementById('tab-pricing');
+            const calcContent = document.getElementById('content-calculator');
+            const pricingContent = document.getElementById('content-pricing');
+
+            if (calcTab) calcTab.classList.toggle('tab-active', t==='calculator');
+            if (pricingTab) pricingTab.classList.toggle('tab-active', t==='pricing');
+            if (calcContent) calcContent.classList.toggle('hidden', t==='pricing');
+            if (pricingContent) pricingContent.classList.toggle('hidden', t==='calculator');
             if(t==='pricing') populateRateTable();
         }
 
